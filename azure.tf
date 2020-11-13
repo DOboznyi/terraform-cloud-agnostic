@@ -5,36 +5,20 @@ resource "azurerm_resource_group" "this" {
   tags = var.tags
 }
 
-resource "azurerm_network_security_group" "this" {
-  name                = "nsg-test"
+resource "azurerm_virtual_network" "this" {
+  name                = "vnet-test"
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
-
-  security_rule {
-    name                       = "ssh_rule"
-    priority                   = 123
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = var.cidr
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "http_rule"
-    priority                   = 124
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = var.cidr
-    destination_address_prefix = "*"
-  }
+  address_space       = [var.network_cidr]
 
   tags = var.tags
+}
+
+resource "azurerm_subnet" "this" {
+  name                 = "snet-test"
+  resource_group_name  = azurerm_resource_group.this.name
+  virtual_network_name = azurerm_virtual_network.this.name
+  address_prefixes     = [var.subnet_cidr]
 }
 
 resource "azurerm_public_ip" "this" {
@@ -46,25 +30,49 @@ resource "azurerm_public_ip" "this" {
   tags = var.tags
 }
 
-resource "azurerm_virtual_network" "this" {
-  name                = "vnet-test"
+resource "azurerm_route_table" "this" {
+  name                = "rt-test"
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
-  address_space       = ["10.0.0.0/16"]
 
   tags = var.tags
 }
 
-resource "azurerm_subnet" "this" {
-  name                 = "snet-test"
-  resource_group_name  = azurerm_resource_group.this.name
-  virtual_network_name = azurerm_virtual_network.this.name
-  address_prefixes     = ["10.0.0.0/24"]
+resource "azurerm_route" "this" {
+  count               = var.enable_outbound_traffic ? 1 : 0
+  name                = "route-test"
+  resource_group_name = azurerm_resource_group.this.name
+  route_table_name    = azurerm_route_table.this.name
+  address_prefix      = "0.0.0.0/0"
+  next_hop_type       = "Internet"
+}
+
+resource "azurerm_network_security_group" "this" {
+  name                = "nsg-test"
+  location            = azurerm_resource_group.this.location
+  resource_group_name = azurerm_resource_group.this.name
+
+  tags = var.tags
 }
 
 resource "azurerm_subnet_network_security_group_association" "this" {
   subnet_id                 = azurerm_subnet.this.id
   network_security_group_id = azurerm_network_security_group.this.id
+}
+
+resource "azurerm_network_security_rule" "this" {
+  for_each                    = { for rule in var.acl_rules : rule.name => rule }
+  name                        = lookup(each.value, "name", null)
+  priority                    = lookup(each.value, "number", null)
+  direction                   = title(lookup(each.value, "direction", null))
+  access                      = title(lookup(each.value, "action", null))
+  protocol                    = title(lookup(each.value, "protocol", null))
+  source_port_range           = "*"
+  destination_port_range      = lookup(each.value, "from_port", null) != lookup(each.value, "to_port", null) ? join("-", [lookup(each.value, "from_port", null), lookup(each.value, "to_port", null)]) : lookup(each.value, "from_port", null)
+  source_address_prefix       = title(lookup(each.value, "direction", null)) != "Inbound" ? "*" : lookup(each.value, "cidr", null)
+  destination_address_prefix  = title(lookup(each.value, "direction", null)) == "Inbound" ? "*" : lookup(each.value, "cidr", null)
+  resource_group_name         = azurerm_resource_group.this.name
+  network_security_group_name = azurerm_network_security_group.this.name
 }
 
 resource "azurerm_network_interface" "this" {
@@ -94,7 +102,7 @@ resource "azurerm_linux_virtual_machine" "this" {
 
   admin_ssh_key {
     username   = "adminuser"
-    public_key = file("~/.ssh/id_rsa.pub")
+    public_key = var.ssh_key
   }
 
   os_disk {
@@ -105,7 +113,7 @@ resource "azurerm_linux_virtual_machine" "this" {
   source_image_reference {
     publisher = "Canonical"
     offer     = "UbuntuServer"
-    sku       = "16.04-LTS"
+    sku       = "18.04-LTS"
     version   = "latest"
   }
 
@@ -121,7 +129,7 @@ resource "azurerm_virtual_machine_extension" "this" {
 
   settings = <<SETTINGS
     {
-        "script": "${base64encode(templatefile("${path.module}/start.tmpl",{cloud = "azure"}))}"
+        "script": "${base64encode(templatefile("${path.module}/start.tmpl", { cloud = "azure" }))}"
     }
 SETTINGS
 

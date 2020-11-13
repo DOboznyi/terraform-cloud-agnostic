@@ -1,2 +1,2 @@
 .terraform
-test
+test/backend.tf
