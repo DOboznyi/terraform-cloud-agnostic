@@ -1,27 +1,41 @@
 resource "aws_vpc" "this" {
   cidr_block = var.network_cidr
 
-  tags = var.tags
+  tags = merge({
+    "Name" = join("-", concat(["vpc"], var.naming_suffixes)) },
+    var.tags
+  )
 }
 
 resource "aws_subnet" "this" {
   vpc_id     = aws_vpc.this.id
   cidr_block = var.subnet_cidr
 
-  tags = var.tags
+  tags = merge({
+    "Name" = join("-", concat(["subnet"], var.naming_suffixes)) },
+    var.tags
+  )
 }
 
 resource "aws_internet_gateway" "this" {
   count  = var.enable_outbound_traffic ? 1 : 0
   vpc_id = aws_vpc.this.id
 
-  tags = var.tags
+  tags = merge({
+    "Name" = join("-", concat(["igw"], var.naming_suffixes))
+    },
+    var.tags
+  )
 }
 
 resource "aws_route_table" "this" {
   vpc_id = aws_vpc.this.id
 
-  tags = var.tags
+  tags = merge({
+    "Name" = join("-", concat(["rtb"], var.naming_suffixes))
+    },
+    var.tags
+  )
 }
 
 resource "aws_route" "this" {
@@ -40,7 +54,11 @@ resource "aws_network_acl" "this" {
   vpc_id     = aws_vpc.this.id
   subnet_ids = [aws_subnet.this.id]
 
-  tags = var.tags
+  tags = merge({
+    "Name" = join("-", concat(["acl"], var.naming_suffixes))
+    },
+    var.tags
+  )
 }
 
 resource "aws_network_acl_rule" "this" {
@@ -58,12 +76,16 @@ resource "aws_network_acl_rule" "this" {
 resource "aws_eip" "this" {
   instance = aws_instance.this.id
   vpc      = true
-  tags     = var.tags
+  tags = merge({
+    "Name" = join("-", concat(["eip"], var.naming_suffixes))
+    },
+    var.tags
+  )
 }
 
 resource "aws_security_group" "this" {
-  description = "Enable SSH access via port 22"
-  vpc_id      = aws_vpc.this.id
+  name   = join("-", concat(["sg"], var.naming_suffixes))
+  vpc_id = aws_vpc.this.id
 
   tags = var.tags
 }
@@ -84,7 +106,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-*-16.04-amd64-server-*"]
+    values = [lookup(var.os_settings, "filter_name")]
   }
 
   filter {
@@ -92,26 +114,28 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 
-  owners = ["099720109477"] # Canonical
+  owners = [lookup(var.os_settings, "owner_id")] # Canonical
 }
 
 resource "aws_key_pair" "this" {
-  key_name   = "ssh-key-test"
+  key_name   = join("-", concat(["ssh", "key"], var.naming_suffixes))
   public_key = var.ssh_key
 }
 
 resource "aws_instance" "this" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro"
+  instance_type = var.instance_type
   key_name      = aws_key_pair.this.key_name
 
   vpc_security_group_ids      = [aws_security_group.this.id]
   subnet_id                   = aws_subnet.this.id
   associate_public_ip_address = true
 
-  user_data = base64encode(templatefile("${path.module}/start.tmpl", { cloud = "aws" }))
+  user_data = var.user_data
 
-  tags = var.tags
+  tags = {
+    "Name" = join("-", concat(["i"], var.naming_suffixes))
+  }
 
   depends_on = [aws_internet_gateway.this]
 }

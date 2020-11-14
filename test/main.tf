@@ -86,6 +86,12 @@ module "test" {
       cidr      = "0.0.0.0/0"
   }, ]
   ssh_key = file("~/.ssh/id_rsa.pub")
+  clouds  = ["aws", "azure"]
+  user_data = {
+    "aws"   = base64encode(templatefile("${path.module}/start.tmpl", { cloud = "aws" })),
+    "azure" = base64encode(templatefile("${path.module}/start.tmpl", { cloud = "azure" }))
+  }
+  naming_suffixes = ["test"]
 
   tags = {
     delete_me = "true"

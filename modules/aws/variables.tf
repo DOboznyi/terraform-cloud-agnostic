@@ -28,19 +28,10 @@ variable "ssh_key" {
   type        = string
 }
 
-variable "clouds" {
-  description = "A list of clouds where resources will be deployed"
-  type        = list(string)
-  default     = []
-}
-
 variable "user_data" {
   description = "Initial script for virtual machine"
-  type        = map(string)
-  default = {
-    "aws"   = "",
-    "azure" = ""
-  }
+  type        = string
+  default     = ""
 }
 
 variable "naming_suffixes" {
@@ -49,30 +40,19 @@ variable "naming_suffixes" {
   default     = []
 }
 
-variable "instance_type" {
+variable "os_settings" {
   type        = map(string)
-  description = "Type of instance"
+  description = "OS settings: owner, os name, version"
   default = {
-    "aws"   = "t2.micro",
-    "azure" = "Standard_B1s"
+    "filter_name" = "ubuntu/images/hvm-ssd/ubuntu-*-16.04-amd64-server-*",
+    "owner_id"    = "099720109477"
   }
 }
 
-variable "os_settings" {
-  type        = map(string)
+variable "instance_type" {
+  type        = string
   description = "Type of instance"
-  default = {
-    "aws" = {
-      "filter_name" = "ubuntu/images/hvm-ssd/ubuntu-*-16.04-amd64-server-*",
-      "owner_id"    = "099720109477"
-    },
-    "azure" = {
-      "publisher" = "Canonical"
-      "offer"     = "UbuntuServer"
-      "sku"       = "18.04-LTS"
-      "version"   = "latest"
-    }
-  }
+  default     = "t2.micro"
 }
 
 variable "tags" {

@@ -1,12 +1,12 @@
 resource "azurerm_resource_group" "this" {
-  name     = "rg-test"
+  name     = join("-", concat(["rg"], var.naming_suffixes))
   location = "westeurope" # var.region
 
   tags = var.tags
 }
 
 resource "azurerm_virtual_network" "this" {
-  name                = "vnet-test"
+  name                = join("-", concat(["vnet"], var.naming_suffixes))
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
   address_space       = [var.network_cidr]
@@ -15,14 +15,14 @@ resource "azurerm_virtual_network" "this" {
 }
 
 resource "azurerm_subnet" "this" {
-  name                 = "snet-test"
+  name                 = join("-", concat(["snet"], var.naming_suffixes))
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this.name
   address_prefixes     = [var.subnet_cidr]
 }
 
 resource "azurerm_public_ip" "this" {
-  name                = "pip-test"
+  name                = join("-", concat(["pip"], var.naming_suffixes))
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
   allocation_method   = "Dynamic"
@@ -31,7 +31,7 @@ resource "azurerm_public_ip" "this" {
 }
 
 resource "azurerm_route_table" "this" {
-  name                = "rt-test"
+  name                = join("-", concat(["route"], var.naming_suffixes))
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
 
@@ -40,7 +40,7 @@ resource "azurerm_route_table" "this" {
 
 resource "azurerm_route" "this" {
   count               = var.enable_outbound_traffic ? 1 : 0
-  name                = "route-test"
+  name                = join("-", concat(["rt"], var.naming_suffixes))
   resource_group_name = azurerm_resource_group.this.name
   route_table_name    = azurerm_route_table.this.name
   address_prefix      = "0.0.0.0/0"
@@ -48,7 +48,7 @@ resource "azurerm_route" "this" {
 }
 
 resource "azurerm_network_security_group" "this" {
-  name                = "nsg-test"
+  name                = join("-", concat(["nsg"], var.naming_suffixes))
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
 
@@ -62,7 +62,7 @@ resource "azurerm_subnet_network_security_group_association" "this" {
 
 resource "azurerm_network_security_rule" "this" {
   for_each                    = { for rule in var.acl_rules : rule.name => rule }
-  name                        = lookup(each.value, "name", null)
+  name                        = join("-", ["nsgr", lookup(each.value, "name", null)])
   priority                    = lookup(each.value, "number", null)
   direction                   = title(lookup(each.value, "direction", null))
   access                      = title(lookup(each.value, "action", null))
@@ -76,12 +76,12 @@ resource "azurerm_network_security_rule" "this" {
 }
 
 resource "azurerm_network_interface" "this" {
-  name                = "nic-this"
+  name                = join("-", concat(["nic"], var.naming_suffixes))
   location            = azurerm_resource_group.this.location
   resource_group_name = azurerm_resource_group.this.name
 
   ip_configuration {
-    name                          = "ipconfig1"
+    name                          = join("-", concat(["ipconf"], var.naming_suffixes))
     public_ip_address_id          = azurerm_public_ip.this.id
     subnet_id                     = azurerm_subnet.this.id
     private_ip_address_allocation = "Dynamic"
@@ -91,10 +91,10 @@ resource "azurerm_network_interface" "this" {
 }
 
 resource "azurerm_linux_virtual_machine" "this" {
-  name                = "vm-test"
+  name                = join("-", concat(["vm"], var.naming_suffixes))
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
-  size                = "Standard_B1s"
+  size                = var.instance_type
   admin_username      = "adminuser"
   network_interface_ids = [
     azurerm_network_interface.this.id,
@@ -111,17 +111,18 @@ resource "azurerm_linux_virtual_machine" "this" {
   }
 
   source_image_reference {
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "18.04-LTS"
-    version   = "latest"
+    publisher = lookup(var.os_settings, "publisher")
+    offer     = lookup(var.os_settings, "offer")
+    sku       = lookup(var.os_settings, "sku")
+    version   = lookup(var.os_settings, "version")
   }
 
   tags = var.tags
 }
 
 resource "azurerm_virtual_machine_extension" "this" {
-  name                 = "user_data"
+  count                = var.user_data == "" ? 0 : 1
+  name                 = join("-", concat(["vme"], var.naming_suffixes))
   virtual_machine_id   = azurerm_linux_virtual_machine.this.id
   publisher            = "Microsoft.Azure.Extensions"
   type                 = "CustomScript"
@@ -129,7 +130,7 @@ resource "azurerm_virtual_machine_extension" "this" {
 
   settings = <<SETTINGS
     {
-        "script": "${base64encode(templatefile("${path.module}/start.tmpl", { cloud = "azure" }))}"
+        "script": "${var.user_data}"
     }
 SETTINGS
 
