@@ -1,6 +1,6 @@
 resource "azurerm_resource_group" "this" {
   name     = join("-", concat(["rg"], var.naming_suffixes))
-  location = "westeurope" # var.region
+  location = var.region
 
   tags = var.tags
 }
@@ -133,7 +133,6 @@ resource "azurerm_virtual_machine_extension" "this" {
         "script": "${var.user_data}"
     }
 SETTINGS
-
 
   tags = var.tags
 }

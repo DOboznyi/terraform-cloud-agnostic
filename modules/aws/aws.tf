@@ -1,3 +1,25 @@
+# resource "aws_resourcegroups_group" "this" {
+#   name = join("-", concat(["rg"], var.naming_suffixes))
+
+#   resource_query {
+#     query = <<JSON
+# {
+#   "ResourceTypeFilters": [
+#     "AWS::AllSupported"
+#   ]
+#   ,
+#   "TagFilters": [
+#     {
+#       "Key": "${var.tags[0].key}",
+#       "Values": ["${var.tags[0].value}"]
+#     }
+#   ]
+# }
+# JSON
+#   }
+#   tags = var.tags
+# }
+
 resource "aws_vpc" "this" {
   cidr_block = var.network_cidr
 
@@ -84,7 +106,7 @@ resource "aws_eip" "this" {
 }
 
 resource "aws_security_group" "this" {
-  name   = join("-", concat(["sg"], var.naming_suffixes))
+  name   = join("-", concat(["security", "group"], var.naming_suffixes))
   vpc_id = aws_vpc.this.id
 
   tags = var.tags

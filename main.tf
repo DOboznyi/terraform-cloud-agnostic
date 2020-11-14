@@ -8,7 +8,7 @@ module "aws" {
   ssh_key                 = var.ssh_key
   user_data               = lookup(var.user_data, "aws", "")
   naming_suffixes         = var.naming_suffixes
-  instance_type           = lookup(var.user_data, "aws", "t2.micro")
+  instance_type           = lookup(var.instance_type, "aws", "t2.micro")
   tags                    = var.tags
 }
 
@@ -22,6 +22,7 @@ module "azure" {
   ssh_key                 = var.ssh_key
   user_data               = lookup(var.user_data, "azure", "")
   naming_suffixes         = var.naming_suffixes
-  instance_type           = lookup(var.user_data, "azure", "Standard_B1s")
+  instance_type           = lookup(var.instance_type, "azure", "Standard_B1s")
+  region                  = var.region
   tags                    = var.tags
 }

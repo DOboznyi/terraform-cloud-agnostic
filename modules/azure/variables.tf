@@ -57,6 +57,11 @@ variable "instance_type" {
   default     = "Standard_B1s"
 }
 
+variable "region" {
+  type        = string
+  description = "Region where resources will be created"
+}
+
 variable "tags" {
   description = "A mapping of tags to assign to the resources"
   type        = map(string)

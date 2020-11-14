@@ -59,11 +59,11 @@ variable "instance_type" {
 }
 
 variable "os_settings" {
-  type        = map(string)
+  type        = map(map(string))
   description = "Type of instance"
   default = {
     "aws" = {
-      "filter_name" = "ubuntu/images/hvm-ssd/ubuntu-*-16.04-amd64-server-*",
+      "filter_name" = "ubuntu/images/hvm-ssd/ubuntu-*-18.04-amd64-server-*",
       "owner_id"    = "099720109477"
     },
     "azure" = {
@@ -73,6 +73,12 @@ variable "os_settings" {
       "version"   = "latest"
     }
   }
+}
+
+variable "region" {
+  type        = string
+  description = "Region where resources will be created. Required only for Azure"
+  default     = "westeurope"
 }
 
 variable "tags" {

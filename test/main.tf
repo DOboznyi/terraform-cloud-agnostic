@@ -92,6 +92,7 @@ module "test" {
     "azure" = base64encode(templatefile("${path.module}/start.tmpl", { cloud = "azure" }))
   }
   naming_suffixes = ["test"]
+  region          = "westeurope"
 
   tags = {
     delete_me = "true"
